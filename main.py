@@ -123,7 +123,6 @@ class SpriteCycle:
 
 
 class SpriteSheet:
-
     DEFAULT_TIME = 0.1
 
     def __init__(self, path: str, sprite_x: int, sprite_y: int, *, images_per_row: list[int], cycle_names: list[str],
@@ -167,9 +166,19 @@ class Player(Movable, KeyMovable, Drawable, Collidable):
         self.velocity_vector = Vector(0, 0)
         self._hitbox = pygame.rect.Rect(int(self.x - self.WIDTH / 2), int(self.y - self.HEIGHT / 2), self.WIDTH,
                                         self.HEIGHT)
+        self.left_hitbox = pygame.rect.Rect(int(self.x - self.WIDTH / 2), int(self.y - self.HEIGHT / 2), 1,
+                                            self.HEIGHT)
+        self.top_hitbox = pygame.rect.Rect(int(self.x - self.WIDTH / 2), int(self.y - self.HEIGHT / 2), self.WIDTH,
+                                           1)
+        self.right_hitbox = pygame.rect.Rect(int(self.x + self.WIDTH / 2), int(self.y - self.HEIGHT / 2), 1,
+                                             self.HEIGHT)
+        self.bottom_hitbox = pygame.rect.Rect(int(self.x - self.WIDTH / 2), int(self.y + self.HEIGHT / 2), self.WIDTH,
+                                              1)
+
         self.sight = 0
         self.show_sight = False
         self.is_playing_animation = True
+        self.direction: Union[Literal["left"], Literal["right"]] = "right"
         self.state: Union[Literal["still"], Literal["moving"]] = "still"
 
         self.sprites = SpriteSheet("./images/character.png", 32, 32,
@@ -187,9 +196,11 @@ class Player(Movable, KeyMovable, Drawable, Collidable):
             self.velocity_vector += self.acceleration_vector.get_y_vector()
 
         if keys[pygame.K_a]:
+            self.direction = "left"
             self.velocity_vector -= self.acceleration_vector.get_x_vector()
 
         if keys[pygame.K_d]:
+            self.direction = "right"
             self.velocity_vector += self.acceleration_vector.get_x_vector()
 
         velocity_x, velocity_y = self.velocity_vector.get_vector_as_tuple()
@@ -250,6 +261,15 @@ class Player(Movable, KeyMovable, Drawable, Collidable):
         self._hitbox = pygame.rect.Rect(int(self.x - self.WIDTH / 2), int(self.y - self.HEIGHT / 2), self.WIDTH,
                                         self.HEIGHT)
 
+        self.left_hitbox = pygame.rect.Rect(int(self.x - self.WIDTH / 2), int(self.y - self.HEIGHT / 2) + 2, 1,
+                                            self.HEIGHT - 4)
+        self.top_hitbox = pygame.rect.Rect(int(self.x - self.WIDTH / 2) + 2, int(self.y - self.HEIGHT / 2), self.WIDTH - 4,
+                                           1)
+        self.right_hitbox = pygame.rect.Rect(int(self.x + self.WIDTH / 2), int(self.y - self.HEIGHT / 2) + 2, 1,
+                                             self.HEIGHT - 4)
+        self.bottom_hitbox = pygame.rect.Rect(int(self.x - self.WIDTH / 2) + 2, int(self.y + self.HEIGHT / 2), self.WIDTH - 4,
+                                              1)
+
     def draw(self, game_window: Union[pygame.Surface, pygame.SurfaceType]):
         for cycle in self.sprites.sprites.values():
             cycle.interval_timer.tick()
@@ -264,7 +284,11 @@ class Player(Movable, KeyMovable, Drawable, Collidable):
 
         game_window.set_clip(None)
 
-        # pygame.draw.rect(game_window, COLOR_RED, self.hitbox)
+        pygame.draw.rect(game_window, COLOR_RED, self.hitbox)
+        pygame.draw.rect(game_window, COLOR_BLUE, self.left_hitbox)
+        pygame.draw.rect(game_window, COLOR_BLUE, self.right_hitbox)
+        pygame.draw.rect(game_window, COLOR_BLUE, self.top_hitbox)
+        pygame.draw.rect(game_window, COLOR_BLUE, self.bottom_hitbox)
 
         if self.sight < 1 and self.is_playing_animation:
             self.sight += 0.02
@@ -274,7 +298,7 @@ class Player(Movable, KeyMovable, Drawable, Collidable):
 
         invert = False
 
-        if self.velocity_vector.x < 0:
+        if self.direction == "left":
             invert = True
 
         image_cycle = None
@@ -418,12 +442,13 @@ class EndZone(Collidable):
         self.height = height
         self._hitbox = pygame.rect.Rect(self.x, self.y, self.width, self.height)
         self.debug = debug
+        self.font = pygame.font.SysFont("Arial", 24)
+        self.font_render = self.font.render("Help", False, COLOR_BLACK)
 
     def draw(self, game_window: Union[pygame.Surface, pygame.SurfaceType]):
-        if self.debug:
-            pygame.draw.rect(game_window, COLOR_RED, self.hitbox)
-        else:
-            pygame.draw.rect(game_window, COLOR_BLACK, self.hitbox)
+        x, y = self.font_render.get_size()
+
+        game_window.blit(self.font_render, (self.x + self.width / 2 - x / 2, self.y + self.height / 2 - y / 2))
 
     def is_colliding(self, other: 'Collidable', on_collision: Callable[['Collidable', 'Collidable'], None]):
         if self.hitbox.colliderect(other):
@@ -482,8 +507,14 @@ def main():
             user.sight -= 0.05
 
     def on_player_wall_collide(user: Player, wall: Wall):
-        user.x = user.y = 50
-        user.velocity_vector = Vector(0, 0)
+        if user.left_hitbox.colliderect(wall.hitbox):
+            user.velocity_vector.set_x_vector(0.5)
+        if user.right_hitbox.colliderect(wall.hitbox):
+            user.velocity_vector.set_x_vector(-0.5)
+        if user.top_hitbox.colliderect(wall.hitbox):
+            user.velocity_vector.set_y_vector(0.5)
+        if user.bottom_hitbox.colliderect(wall.hitbox):
+            user.velocity_vector.set_y_vector(-0.5)
 
     def on_player_end_collide(user: Player, wall: Wall):
         nonlocal game_state
@@ -577,6 +608,7 @@ def main():
             player.is_colliding(bullet, on_player_bullet_collide)
 
         if game_state == 2:
+            print(player.velocity_vector)
             player.is_colliding(end_zone, on_player_end_collide)
 
         if game_state == 3:
