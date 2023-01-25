@@ -98,6 +98,7 @@ class Sprite:
         image = self.image.subsurface(self.dimensions)
         image = image if not invert else pygame.transform.flip(image, True, False)
         image = pygame.transform.scale(image, (48, 48))
+        image = image.subsurface((8, 0, 32, 48))
         if self.dimensions:
             game_window.blit(image, (x, y))
         else:
@@ -155,7 +156,7 @@ class SpriteSheet:
 
 class Player(Movable, KeyMovable, Drawable, Collidable):
     MAX_SPEED = 3
-    WIDTH = 48
+    WIDTH = 32
     HEIGHT = 48
     FRICTION_VECTOR = Vector(0.05, 0.05)
 
@@ -284,11 +285,11 @@ class Player(Movable, KeyMovable, Drawable, Collidable):
 
         game_window.set_clip(None)
 
-        pygame.draw.rect(game_window, COLOR_RED, self.hitbox)
-        pygame.draw.rect(game_window, COLOR_BLUE, self.left_hitbox)
-        pygame.draw.rect(game_window, COLOR_BLUE, self.right_hitbox)
-        pygame.draw.rect(game_window, COLOR_BLUE, self.top_hitbox)
-        pygame.draw.rect(game_window, COLOR_BLUE, self.bottom_hitbox)
+        # pygame.draw.rect(game_window, COLOR_RED, self.hitbox)
+        # pygame.draw.rect(game_window, COLOR_BLUE, self.left_hitbox)
+        # pygame.draw.rect(game_window, COLOR_BLUE, self.right_hitbox)
+        # pygame.draw.rect(game_window, COLOR_BLUE, self.top_hitbox)
+        # pygame.draw.rect(game_window, COLOR_BLUE, self.bottom_hitbox)
 
         if self.sight < 1 and self.is_playing_animation:
             self.sight += 0.02
@@ -442,8 +443,8 @@ class EndZone(Collidable):
         self.height = height
         self._hitbox = pygame.rect.Rect(self.x, self.y, self.width, self.height)
         self.debug = debug
-        self.font = pygame.font.SysFont("Arial", 24)
-        self.font_render = self.font.render("Help", False, COLOR_BLACK)
+        self.font = pygame.font.Font("./fonts/Roboto.ttf", 24)
+        self.font_render = self.font.render("HELP", False, COLOR_BLACK)
 
     def draw(self, game_window: Union[pygame.Surface, pygame.SurfaceType]):
         x, y = self.font_render.get_size()
@@ -474,6 +475,9 @@ def check_quit(keys: Sequence[bool]) -> bool:
 
 def main():
     pygame.init()
+
+    roboto_24 = pygame.font.Font("./fonts/Roboto.ttf", 24)
+    end_render = roboto_24.render("The End.", False, COLOR_WHITE)
 
     game_window = pygame.display.set_mode((GAME_WIDTH, GAME_HEIGHT))
 
@@ -534,7 +538,7 @@ def main():
 
         player.x = player.y = 50
 
-    end_zone = EndZone(600, 520, 80, 140)
+    end_zone = EndZone(600, 520, 80, 100)
     bullets: list[TextBullet] = []
     drawables: list[Drawable] = [player, timer]
     movables: list[Movable] = [player]
@@ -596,24 +600,26 @@ def main():
             for wall in walls:
                 player.is_colliding(wall, on_player_wall_collide)
 
-        player.key_move(keys)
+        if game_state in (1, 2):
+            player.key_move(keys)
 
-        for moveable in movables:
-            moveable.move()
+            for moveable in movables:
+                moveable.move()
 
-        for drawable in drawables:
-            drawable.draw(game_window)
+            for drawable in drawables:
+                drawable.draw(game_window)
 
-        for bullet in bullets:
-            player.is_colliding(bullet, on_player_bullet_collide)
+            for bullet in bullets:
+                player.is_colliding(bullet, on_player_bullet_collide)
 
         if game_state == 2:
             print(player.velocity_vector)
             player.is_colliding(end_zone, on_player_end_collide)
 
         if game_state == 3:
-            print("End")
-            game_state = None
+            x, y = end_render.get_size()
+
+            game_window.blit(end_render, (GAME_WIDTH / 2 - x / 2, GAME_HEIGHT / 2 - y / 2))
 
         pygame.display.update()
 
